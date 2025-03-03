@@ -30,6 +30,13 @@ declare -A ANACRON_PATHS=(
     ["Anacron 运行记录"]="/var/spool/anacron"
 )
 
+# 定义 AT 任务相关路径
+declare -A AT_PATHS=(
+    ["AT 任务目录"]="/var/spool/at"
+    ["AT spool 目录"]="/var/spool/cron/atspool"
+    ["AT jobs 目录"]="/var/spool/cron/atjobs"
+)
+
 echo "============================================================"
 echo "开始检查系统定时任务配置..."
 echo "============================================================"
@@ -56,7 +63,7 @@ for desc in "${!CRON_PATHS[@]}"; do
                 if [ -f "$file" ]; then
                     echo "文件: $($BUSYBOX basename "$file")"
                     echo "----------------------------------------"
-                    $BUSYBOX cat "$file"
+                    $BUSYBOX cat -v "$file"
                     echo
                 fi
             done
@@ -65,10 +72,6 @@ for desc in "${!CRON_PATHS[@]}"; do
         echo "路径不存在"
     fi
 done
-
-
-
-
 
 # 2. 检查周期性任务配置和最后运行时间
 echo; echo "============================================================"
@@ -130,7 +133,7 @@ for desc in "${!ANACRON_PATHS[@]}"; do
             if [ -f "$file" ]; then
                 echo "文件: $($BUSYBOX basename "$file")"
                 echo "----------------------------------------"
-                $BUSYBOX cat "$file"
+                $BUSYBOX cat -v "$file"
                 echo
             fi
         done
@@ -139,24 +142,39 @@ for desc in "${!ANACRON_PATHS[@]}"; do
     fi
 done
 
+# AT 任务检查
+echo; echo "============================================================"
+echo ">>> 4. AT 计划任务检查:"
+echo "============================================================"
 
-
-
+# 遍历检查 AT 相关目录
+for desc in "${!AT_PATHS[@]}"; do
+    path="${AT_PATHS[$desc]}"
+    $BUSYBOX echo -e "\n检查 $desc ($path):"
+    if [ -d "$path" ]; then
+        $BUSYBOX ls -la "$path"
+        # 检查目录中的文件内容
+        for file in "$path"/*; do
+            if [ -f "$file" ]; then
+                $BUSYBOX echo -e "\n文件内容 $file:"
+                $BUSYBOX cat -v "$file"
+            fi
+        done
+    else
+        echo "目录不存在: $path"
+    fi
+done
 
 # Systemd timers
 echo; echo "============================================================"
-echo ">>> 4. 列出所有 Systemd 定时器:"
+echo ">>> 5. 列出所有 Systemd 定时器:"
 echo "============================================================"
 systemctl list-timers --all --no-pager
-
-
-
-
 
 # Systemd enabled services
 # 聚焦于已启动的 services
 echo; echo "============================================================"
-echo ">>> 5. 查看自启动的 service (使用systemctl检查)(按单元文件的修改时间排序，前 20 条):"
+echo ">>> 6. 查看自启动的 service (使用systemctl检查)(按单元文件的修改时间排序，前 20 条):"
 echo "============================================================"
 # 定义要检查的 Systemd 单元文件目录（仅包含可能包含已启用服务的路径）
 directories=("/etc/systemd/system/" "/usr/lib/systemd/system/")
@@ -216,16 +234,10 @@ if [ $count -eq 0 ]; then
   echo "未找到任何已启用的 .service 文件。"
 fi
 
-
-
-
-
-
-
 # Systemd enabled services
 # 列出所有文件
 echo; echo "============================================================"
-echo ">>> 6. 列出 Systemd 单元文件目录下的所有文件，并按修改时间排序 (前 20 条):"
+echo ">>> 7. 列出 Systemd 单元文件目录下的所有文件，并按修改时间排序 (前 20 条):"
 echo "============================================================"
 # 定义要检查的 Systemd 单元文件目录
 directories=("/etc/systemd/system/" "/usr/lib/systemd/system/" "/lib/systemd/system/" "/run/systemd/system/")
@@ -306,15 +318,9 @@ if [ $count -eq 0 ]; then
     echo "未找到任何文件。"
 fi
 
-
-
-
-
-
-
 # SysVinit 检查
 echo; echo "============================================================"
-echo ">>> 7. 检查 SysVinit 启动相关文件（rc.local、init.d、rcX.d）的修改时间和内容:"
+echo ">>> 8. 检查 SysVinit 启动相关文件（rc.local、init.d、rcX.d）的修改时间和内容:"
 echo "============================================================"
 
 # 定义要检查的目录和文件
@@ -382,7 +388,7 @@ for item in "${directories_and_files[@]}"; do
                 echo; echo "------------------------------------------------------------"
                 echo "[+]/etc/rc.local 内容:"
                 echo "------------------------------------------------------------"
-                $BUSYBOX cat "$item" 2>/dev/null || echo "无法访问 /etc/rc.local"
+                $BUSYBOX cat -v "$item" 2>/dev/null || echo "无法访问 /etc/rc.local"
             fi
         fi
     elif [ -d "$item" ]; then
@@ -433,16 +439,9 @@ if [ ${#file_info[@]} -eq 0 ]; then
     echo "未找到任何相关文件。"
 fi
 
-
-
-
-
-
-
-
 # 检查/etc/profile.d/目录下的文件的修改时间
 echo; echo "============================================================"
-echo ">>> 8. /etc/profile.d/ (bash的全局配置文件)目录下的文件的修改时间:"
+echo ">>> 9. /etc/profile.d/ (bash的全局配置文件)目录下的文件的修改时间:"
 echo "============================================================"
 echo "按修改时间从新到旧排序的文件列表:"
 # 检查目录是否存在
@@ -457,16 +456,9 @@ else
     echo "目录 $directory 不存在。"
 fi
 
-
-
-
-
-
-
-
 # bash files
 echo; echo "============================================================"
-echo ">>> 9. bash配置文件检查 (按修改时间从新到旧排序):"
+echo ">>> 10. bash配置文件检查 (按修改时间从新到旧排序):"
 echo "============================================================"
 
 # 定义要检查的文件列表
@@ -521,17 +513,13 @@ echo "------------------------------------------------------------"
 echo "不存在的配置文件:"
 for file in "${bash_files[@]}"; do
     if [ ! -f "$file" ]; then
-        echo "[不存在] $file"
+        echo "[-][不存在] $file"
     fi
 done
 
-
-
-
-
 # SSH authorized_keys 检查
 echo; echo "============================================================"
-echo ">>> 10. 检查 SSH authorized_keys 文件:"
+echo ">>> 11. 检查 SSH authorized_keys 文件:"
 echo "============================================================"
 
 # 定义要检查的 SSH 密钥文件
@@ -555,7 +543,7 @@ for file in "${!ssh_files[@]}"; do
         fi
         
         echo "------------------------------------------------------------"
-        echo "公钥列表:"
+        echo "[+]公钥列表:"
         # 读取并处理每个公钥
         while IFS= read -r line; do
             # 跳过空行和注释
@@ -572,11 +560,17 @@ for file in "${!ssh_files[@]}"; do
             fi
         done < "$file"
         
+        # 添加完整的文件内容显示
+        echo "------------------------------------------------------------"
+        echo "[+]文件完整内容 (cat -v 显示):"
+        $BUSYBOX cat -v "$file"
+        echo "------------------------------------------------------------"
+        
         # 检查文件权限
         perms=$($BUSYBOX stat -c "%a" "$file")
-        echo "文件权限: $perms (建议: 600)"
+        echo "[+]文件权限: $perms (建议: 600)"
         if [ "$perms" != "600" ]; then
-            echo "警告: 文件权限过于开放，建议执行: chmod 600 $file"
+            echo "[+]警告: 文件权限过于开放，建议执行: chmod 600 $file"
         fi
         
     else
@@ -587,21 +581,26 @@ done
 # 检查 .ssh 目录权限
 if [ -d "$HOME/.ssh" ]; then
     perms=$($BUSYBOX stat -c "%a" "$HOME/.ssh")
-    echo "------------------------------------------------------------"
-    echo; echo ".ssh 目录权限: $perms (建议: 700)"
+    echo; echo "[+].ssh 目录权限: $perms (建议: 700)"
     if [ "$perms" != "700" ]; then
-        echo "警告: 目录权限过于开放，建议执行: chmod 700 $HOME/.ssh"
+        echo "[+]警告: 目录权限过于开放，建议执行: chmod 700 $HOME/.ssh"
     fi
 fi
 
+# history 检查
+echo; echo "============================================================"
+echo ">>> 12. history 命令（包含时间, 最后20行）:"
+echo "============================================================"
 
+export HISTTIMEFORMAT='%F %T '
+history | $BUSYBOX tail -n 20
 
 echo "============================================================"
 echo "任务检查完成。"
 echo "============================================================"
 
 echo; echo "============================================================"
-echo ">>> 11. 其他有用的检查命令参考:"
+echo ">>> 13. 其他有用的检查命令参考:"
 echo "============================================================"
 echo "1. 查看文件中的非注释和非空行:"
 echo "   grep -E -v '^\s*($|#)' <文件路径>"
@@ -680,13 +679,19 @@ echo "18. 查看文件占用:"
 echo '   lsof eval.sh'
 echo
 
+echo "19. 历史命令, 包含时间戳:"
+echo '   export HISTTIMEFORMAT="%F %T "; history | $BUSYBOX tail -n 20'
+echo
 
-echo "19. 其他常用命令:"
+echo "20. 查看文件内容, 避免\r等转义符的影响:"
+echo '   cat -v <filename>'
+echo
+
+echo "20. 其他常用命令:"
 echo '   systemctl status pid'
 echo '   ps -w axjf'
 echo '   ls -al /proc/pid/exe'
 echo
-
 
 echo "注意: 以上命令仅供参考，请根据实际情况使用。"
 echo "============================================================"
