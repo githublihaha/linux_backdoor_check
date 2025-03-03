@@ -1,5 +1,5 @@
 # linux_backdoor_check
-linux持久化的检查项
+linux持久化后门的检查项
 
 适用于挖矿、入侵排查场景
 
