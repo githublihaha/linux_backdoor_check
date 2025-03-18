@@ -672,7 +672,9 @@ echo '   stat xxx.sh'
 echo
 
 echo "17. 杀死进程组:"
-echo '   kill -9 -pid'
+echo '   kill -9 -PGID'
+echo '   sudo kill -9 -- -PGID'
+echo '   sudo pkill -g PGID'
 echo
 
 echo "18. 查看文件占用:"
